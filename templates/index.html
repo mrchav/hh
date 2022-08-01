@@ -1,0 +1,21 @@
+{% extends 'main.html' %}
+<h1>Все вакансии </h1>
+{% block content %}
+    {% for vacancy in vacancies %}
+    <div class="row">
+        <div class="col">
+             <h3>{{vacancy.score_points}} - {{vacancy.name}}</h3>
+
+        </div>
+    </div>
+    <div class="row">
+        <div class="col">
+            {% autoescape false %}
+                {{vacancy.description}}
+            {% endautoescape %}
+        </div>
+    </div>
+    <a href="https://hh.ru/vacancy/{{vacancy.hh_id}}" target="_blank"> посмотреть вакансию</a>
+    <hr>
+{% endfor %}
+{% endblock %}
