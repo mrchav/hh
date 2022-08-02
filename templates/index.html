@@ -1,10 +1,11 @@
 {% extends 'main.html' %}
-<h1>Все вакансии </h1>
+<h1 xmlns="http://www.w3.org/1999/html">Все вакансии </h1>
 {% block content %}
     {% for vacancy in vacancies %}
     <div class="row">
         <div class="col">
-             <h3>{{vacancy.score_points}} - {{vacancy.name}}</h3>
+             <h3>{{vacancy.name}}</h3>
+            <h4> баллы интересности профессии - <span class="col-red"> {{vacancy.score_points}}</span></h4>
 
         </div>
     </div>
@@ -17,5 +18,8 @@
     </div>
     <a href="https://hh.ru/vacancy/{{vacancy.hh_id}}" target="_blank"> посмотреть вакансию</a>
     <hr>
+    <br>
+    <br>
+    <br>
 {% endfor %}
 {% endblock %}
