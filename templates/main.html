@@ -10,10 +10,12 @@
 <div class="container">
     <div class="row navibar">
         <ul>
-            <li> <a href="{{ url_for('show_all_vacancy')}}">Главная</a> </li>
-            <li> <a href="{{ url_for('find_new_vacancy')}}">Найти новые вакансии</a></li>
-            <li> <a href="{{ url_for('update_full_details')}}">Обновить информацию о вакансиях</a></li>
-            <li> <a href="{{ url_for('update_score_points')}}">Обновить скоры </a></li>
+            <li> <a class="btn btn-light" href="{{ url_for('show_all_vacancy')}}">Главная</a> </li>
+            <li> <a class="btn btn-light" href="{{ url_for('rated_vacancies')}}">Отобранные вакансии</a> </li>
+            <li> <a class="btn btn-light" href="{{ url_for('respond_vacancies')}}">Откликнулся</a> </li>
+            <li> <a class="btn btn-light" href="{{ url_for('find_new_vacancy')}}">Найти новые вакансии</a></li>
+            <li> <a class="btn btn-light" href="{{ url_for('update_full_details')}}">Обновить информацию о вакансиях</a></li>
+            <li> <a class="btn btn-light" href="{{ url_for('update_score_points')}}">Обновить скоры </a></li>
         </ul>
     </div>
 </div>

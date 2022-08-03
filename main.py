@@ -3,17 +3,20 @@ import json
 import datetime
 
 from flask_sqlalchemy import SQLAlchemy
-from flask import Flask, render_template
+from flask import Flask, render_template, request, redirect, url_for
 from sqlalchemy import desc
 import langid
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///vacancy.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config["SQLALCHEMY_ECHO"] = True
+#app.config["SQLALCHEMY_ECHO"] = True
 
 db = SQLAlchemy(app)
 
+#
+# ключевые запросы, по котором ищем новые вакансии
+#
 START_REQUESTS = (
     'python',
     'python стажер',
@@ -30,22 +33,33 @@ START_REQUESTS = (
 
 )
 
+#
+#стоп слова для названия вакансии
+#
 STOP_WORDS_IN_TITLE = (
     'аналитик', 'Middle', 'безопас', 'C#', 'Rust', 'Go', 'DevOps', 'Ruby', 'Rust', 'Frontend', 'QA', 'Team Lead',
     'Scientist', 'Big Data', 'Fullstack', 'Data Science', 'Chief', '.Net', 'C++', 'Delphi', 'middle', 'PHP', 'JS',
     'support', 'Full-Stack', 'Senior', 'Financial', 'С++', 'Machine Learning', 'Full Stack', 'Техлид', 'Analytic',
     'Java', 'Data engineer', 'нейронн', 'research', 'Teamlead', 'ML-инженер', 'Firmware', 'маркетолог', 'Analyst',
     'TechLead', 'Методист', 'HR-менеджер', 'анализ', 'Lead', 'Head of', 'Architect', 'DevSecOps', 'React', 'тимлид',
-    'Архитектор',  'Oracle', 'Linux', 'Мидл', 'Designer', 'UnrealEngine', 'Administrator', 'Recruiter', 'директор',
-    'Angular', 'Perl', '1C', '1C', 'HR менеджер','микроэлектроника', 'linux', 'node.js',
+    'Архитектор', 'Oracle', 'Linux', 'Мидл', 'Designer', 'UnrealEngine', 'Administrator', 'Recruiter', 'директор',
+    'Angular', 'Perl', '1C', '1C', 'HR менеджер', 'микроэлектроника', 'linux', 'node.js', '1С', 'Product Owner',
+    'Препод',
 )
+
+#
+#список
+#
 WHITE_WORDS_IN_TITLE = (
-    'стажер', 'джун', 'junior'
+    'стажер', 'джун', 'junior', 'начальный',
+)
+WHITE_WORDS_IN_BODY = (
+    'стажер', 'джун', 'junior', 'начальный', 'тестовое', 'тест',
 )
 
 STOP_WORDS_IN_SKILLS = (
     'C#', 'Rust', 'Go', 'DevOps', 'Ruby', 'Rust', 'QA', 'Team Lead', 'Fullstack', '.Net', 'C++', 'Delphi',
-    'middle', 'Full-Stack', 'Senior', 'С++', 'Full Stack', 'Техлид','Teamlead', 'TechLead', 'Методист',
+    'middle', 'Full-Stack', 'Senior', 'С++', 'Full Stack', 'Техлид', 'Teamlead', 'TechLead', 'Методист',
     'анализ', 'Lead', 'Head of', 'Architect', 'DevSecOps', 'React', 'тимлид', '1C', '1C', 'Oracle', 'Designer',
     'UnrealEngine', 'Recruiter', 'директор', 'Angular',
 )
@@ -68,6 +82,8 @@ class Vacancy(db.Model):
     area_name = db.Column(db.String(100))
     url = db.Column(db.String(255))
     archived = db.Column(db.Boolean)
+    respond = db.Column(db.Boolean)
+    respond_url = db.Column(db.String(255))
     score_points = db.Column(db.Integer)
     update_data_time = db.Column(db.DateTime)
     description = db.Column(db.String(5000))
@@ -93,10 +109,22 @@ class Vacancy(db.Model):
         if self.key_skills_names is not None and self.key_skills_names != '':
             if any(word.lower() in self.key_skills_names.lower() for word in STOP_WORDS_IN_SKILLS):
                 self.score_points -= 30
+
         if self.description is not None:
             lang = langid.classify(self.description)
             if lang[0] != 'ru':
                 self.score_points -= 60
+            if any(word.lower() in self.description.lower() for word in WHITE_WORDS_IN_BODY):
+                self.score_points += 10
+
+        if self.experience_name == 'Нет опыта':
+            self.score_points += 20
+
+        if self.experience_name == 'От 1 года до 3 лет':
+            self.score_points += 10
+
+        if self.experience_name == 'Более 6 лет':
+            self.score_points -= 30
 
 
         return False
@@ -121,6 +149,7 @@ class Vacancy(db.Model):
             self.area_id = vacancy_data['area']['id']
             self.area_name = vacancy_data['area']['name']
             self.url = vacancy_data['alternate_url']
+            self.respond_url = vacancy_data['apply_alternate_url']
             self.archived = vacancy_data['archived']
             self.description = vacancy_data['description']
             self.branded_description = vacancy_data['branded_description']
@@ -147,7 +176,6 @@ class Vacancy(db.Model):
                     self.contacts_name = vacancy_data['contacts']['email']
                     self.vacancy_score_points()
 
-        db.session.commit()
         return True
 
     def __repr__(self):
@@ -179,7 +207,8 @@ def update_score_points():
 
 @app.route('/updatedetails', methods=['GET'])
 def update_full_details():
-    updated_vacansies = Vacancy.query.all()
+    updated_vacansies = Vacancy.query.filter((Vacancy.archived == False) | (Vacancy.respond == False)
+                         | (Vacancy.my_score < 0)).order_by(Vacancy.update_data_time).all()[0:100]
     for vacancy in updated_vacansies:
         print(vacancy.update_data_time)
         if vacancy.update_data_time is not None:
@@ -187,6 +216,7 @@ def update_full_details():
                 continue
         print('надо бы обновить данные')
         vacancy.get_full_vacancy_details()
+    db.session.commit()
     return render_template('update_vacancies.html', title='Обновляем полную информацию о вакансиях',
                            vacanсies=updated_vacansies)
 
@@ -229,12 +259,61 @@ def find_new_vacancy():
 
 @app.route('/', methods=['GET'])
 def show_all_vacancy():
+    message = ''
+    if request.args.get('message') is not None:
+        message = request.args.get('message')
     all_vacancies = []
     try:
-        all_vacancies = Vacancy.query.order_by(desc(Vacancy.score_points)).all()
+        all_vacancies = Vacancy.query.filter((Vacancy.respond == 0) & (Vacancy.my_score == 0) |
+                                         (Vacancy.my_score == None)).order_by(desc(Vacancy.score_points)).all()[0:30]
     except Exception as e:
         print(f'Ошибка чтения из БД {e}')
-    return render_template('index.html', title='Все вакансии', vacancies=all_vacancies)
+    return render_template('index.html', title='Все вакансии', vacancies=all_vacancies, message=message)
+
+
+@app.route('/voteforvacancy', methods=['GET'])
+def vote_for_vacancy():
+
+    v_id = request.args.get('vid')
+    score = request.args.get('score')
+    vacancy = Vacancy.query.filter(Vacancy.id == v_id).first()
+    vacancy.my_score = score
+    db.session.commit()
+
+    return redirect(url_for('.show_all_vacancy', message=f'{vacancy.name} присвоено {vacancy.my_score} баллов'))
+
+@app.route('/ratedvacancies', methods=['GET'])
+def rated_vacancies():
+    try:
+        all_vacancies = Vacancy.query.filter((Vacancy.my_score > 0) & (Vacancy.my_score != None) &
+                 ((Vacancy.respond == False) | (Vacancy.respond == None))).order_by(desc(Vacancy.my_score)).all()[0:30]
+    except Exception as e:
+        print(f'Ошибка чтения из БД {e}')
+
+    return render_template('index.html', title='Оцененые вакансии', vacancies=all_vacancies)
+
+
+@app.route('/respondvacancies', methods=['GET'])
+def respond_vacancies():
+    try:
+        all_vacancies = Vacancy.query.filter(Vacancy.respond == True).order_by(desc(Vacancy.score_points)).all()[0:30]
+    except Exception as e:
+        print(f'Ошибка чтения из БД {e}')
+
+    return render_template('index.html', title='Откликнулся на вакансии', vacancies=all_vacancies)
+
+
+@app.route('/respond', methods=['GET'])
+def respond():
+    vid = request.args.get('vid')
+    try:
+        vacancy = Vacancy.query.filter(Vacancy.id == vid).first()
+    except Exception as e:
+        print(f'Ошибка чтения из БД {e}')
+    vacancy.respond = True
+    db.session.commit()
+
+    return redirect(f'{vacancy.respond_url}')
 
 
 if __name__ == '__main__':

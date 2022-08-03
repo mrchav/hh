@@ -4,8 +4,7 @@ h1{
 li {
     list-style-type: none;
     display: inline; /* Отображать как строчный элемент */
-    margin-right: 5px; /* Отступ слева */
-    padding: 3px; /* Поля вокруг текста */
+
 }
 .col-red{
     color:red;

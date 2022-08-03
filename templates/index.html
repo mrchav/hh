@@ -1,11 +1,16 @@
 {% extends 'main.html' %}
 <h1 xmlns="http://www.w3.org/1999/html">Все вакансии </h1>
 {% block content %}
+    <h1>{{title}}</h1><hr>
+    <span class="col-red">{{message}}</span>
     {% for vacancy in vacancies %}
     <div class="row">
         <div class="col">
              <h3>{{vacancy.name}}</h3>
-            <h4> баллы интересности профессии - <span class="col-red"> {{vacancy.score_points}}</span></h4>
+            <div> автоматические баллы вакансии: <span class="col-red"> {{vacancy.score_points}}</span></div>
+            {% if vacancy.my_score != None %}
+                <h4><span class="col-red"> Моя оценка: {{vacancy.my_score}}</span></h4>
+            {% endif%}
 
         </div>
     </div>
@@ -16,8 +21,21 @@
             {% endautoescape %}
         </div>
     </div>
-    <a href="https://hh.ru/vacancy/{{vacancy.hh_id}}" target="_blank"> посмотреть вакансию</a>
+
+    <a class="btn btn-danger" href="{{ url_for('vote_for_vacancy', vid=vacancy.id, score=-10) }}"> оценить на -10 балл</a>
+    <a class="btn btn-danger" href="{{ url_for('vote_for_vacancy', vid=vacancy.id, score=-5) }}"> оценить на -5 балл</a>
+    <a class="btn btn-danger" href="{{ url_for('vote_for_vacancy', vid=vacancy.id, score=1) }}"> оценить на 1 балл</a>
+    <a class="btn btn-info" href="{{ url_for('vote_for_vacancy', vid=vacancy.id, score=5) }}"> оценить на 5 баллов</a>
+    <a class="btn btn-success" href="{{ url_for('vote_for_vacancy', vid=vacancy.id, score=10) }}"> оценить на 10 баллов</a>
+    <br>
+    <br>
+    <a class="btn btn-primary" href="{{vacancy.url}}" target="_blank"> посмотреть вакансию</a>
+    <br>
+    <br>
+     <a class="btn btn-primary" href="{{url_for('respond', vid=vacancy.id)}}" target="_blank"> откликнуться на вакансию</a>
     <hr>
+
+    <br>
     <br>
     <br>
     <br>
