@@ -2,6 +2,7 @@ import requests
 import json
 import datetime
 
+from collections import OrderedDict
 from flask_sqlalchemy import SQLAlchemy
 from flask import Flask, render_template, request, redirect, url_for
 from sqlalchemy import desc
@@ -10,7 +11,7 @@ import langid
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///vacancy.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-#app.config["SQLALCHEMY_ECHO"] = True
+# app.config["SQLALCHEMY_ECHO"] = True
 
 db = SQLAlchemy(app)
 
@@ -34,7 +35,7 @@ START_REQUESTS = (
 )
 
 #
-#стоп слова для названия вакансии
+# стоп слова для названия вакансии
 #
 STOP_WORDS_IN_TITLE = (
     'аналитик', 'Middle', 'безопас', 'C#', 'Rust', 'Go', 'DevOps', 'Ruby', 'Rust', 'Frontend', 'QA', 'Team Lead',
@@ -44,17 +45,32 @@ STOP_WORDS_IN_TITLE = (
     'TechLead', 'Методист', 'HR-менеджер', 'анализ', 'Lead', 'Head of', 'Architect', 'DevSecOps', 'React', 'тимлид',
     'Архитектор', 'Oracle', 'Linux', 'Мидл', 'Designer', 'UnrealEngine', 'Administrator', 'Recruiter', 'директор',
     'Angular', 'Perl', '1C', '1C', 'HR менеджер', 'микроэлектроника', 'linux', 'node.js', '1С', 'Product Owner',
-    'Препод',
+    'Старший', 'ведущий', 'Главный', 'Препод', 'админи', 'нагруз', 'Data Analyst', 'Gameplay', 'Data инженер',
+    'ML Developer', 'DevOps', 'Data Science', 'Руководитель', 'аналитик', 'DevOps', 'тестированию', 'Java', 'Scala',
+    'Golang ',
+
 )
 
+MINUS_WORDS = (
+
+)
 #
-#список
+# список
 #
-WHITE_WORDS_IN_TITLE = (
+
+WHITE_WORDS_IN_TITLE1 = (
     'стажер', 'джун', 'junior', 'начальный',
 )
+WHITE_WORDS_IN_TITLE3 = (
+    'Backend', 'developer',
+)
+
+WHITE_WORDS_IN_TITLE2 = (
+    'Python',
+)
+
 WHITE_WORDS_IN_BODY = (
-    'стажер', 'джун', 'junior', 'начальный', 'тестовое', 'тест',
+    'стажер', 'джун', 'junior', 'начальный',
 )
 
 STOP_WORDS_IN_SKILLS = (
@@ -103,29 +119,41 @@ class Vacancy(db.Model):
         if any(word.lower() in self.name.lower() for word in STOP_WORDS_IN_TITLE):
             self.score_points -= 30
 
-        if any(word.lower() in self.name.lower() for word in WHITE_WORDS_IN_TITLE):
+        if any(word.lower() in self.name.lower() for word in WHITE_WORDS_IN_TITLE3):
             self.score_points += 20
+
+        if any(word.lower() in self.name.lower() for word in WHITE_WORDS_IN_TITLE1):
+            self.score_points += 30
+
+            if any(word.lower() in self.name.lower() for word in WHITE_WORDS_IN_TITLE2):
+                self.score_points += 80
+
+        if any(word.lower() in self.name.lower() for word in WHITE_WORDS_IN_TITLE2):
+            self.score_points += 60
 
         if self.key_skills_names is not None and self.key_skills_names != '':
             if any(word.lower() in self.key_skills_names.lower() for word in STOP_WORDS_IN_SKILLS):
-                self.score_points -= 30
+                self.score_points -= 20
 
         if self.description is not None:
             lang = langid.classify(self.description)
             if lang[0] != 'ru':
-                self.score_points -= 60
+                self.score_points -= 40
+
             if any(word.lower() in self.description.lower() for word in WHITE_WORDS_IN_BODY):
                 self.score_points += 10
 
         if self.experience_name == 'Нет опыта':
-            self.score_points += 20
+            self.score_points += 30
 
         if self.experience_name == 'От 1 года до 3 лет':
-            self.score_points += 10
+            self.score_points += 20
+
+        if self.experience_name == 'От 3 до 6 лет':
+            self.score_points -= 10
 
         if self.experience_name == 'Более 6 лет':
-            self.score_points -= 30
-
+            self.score_points -= 20
 
         return False
 
@@ -208,7 +236,7 @@ def update_score_points():
 @app.route('/updatedetails', methods=['GET'])
 def update_full_details():
     updated_vacansies = Vacancy.query.filter((Vacancy.archived == False) | (Vacancy.respond == False)
-                         | (Vacancy.my_score < 0)).order_by(Vacancy.update_data_time).all()[0:100]
+                                             | (Vacancy.my_score < 0)).order_by(Vacancy.update_data_time).all()[0:400]
     for vacancy in updated_vacansies:
         print(vacancy.update_data_time)
         if vacancy.update_data_time is not None:
@@ -265,15 +293,16 @@ def show_all_vacancy():
     all_vacancies = []
     try:
         all_vacancies = Vacancy.query.filter((Vacancy.respond == 0) & (Vacancy.my_score == 0) |
-                                         (Vacancy.my_score == None)).order_by(desc(Vacancy.score_points)).all()[0:30]
+                                             (Vacancy.my_score == None)).order_by(desc(Vacancy.score_points)).all()[0:30]
+        count = Vacancy.query.filter((Vacancy.respond == 0) & (Vacancy.my_score == 0) |
+                                     (Vacancy.my_score == None)).order_by(desc(Vacancy.score_points)).count()
     except Exception as e:
         print(f'Ошибка чтения из БД {e}')
-    return render_template('index.html', title='Все вакансии', vacancies=all_vacancies, message=message)
+    return render_template('index.html', title='Все вакансии', vacancies=all_vacancies, message=message, count=count)
 
 
 @app.route('/voteforvacancy', methods=['GET'])
 def vote_for_vacancy():
-
     v_id = request.args.get('vid')
     score = request.args.get('score')
     vacancy = Vacancy.query.filter(Vacancy.id == v_id).first()
@@ -282,25 +311,32 @@ def vote_for_vacancy():
 
     return redirect(url_for('.show_all_vacancy', message=f'{vacancy.name} присвоено {vacancy.my_score} баллов'))
 
+
 @app.route('/ratedvacancies', methods=['GET'])
 def rated_vacancies():
     try:
         all_vacancies = Vacancy.query.filter((Vacancy.my_score > 0) & (Vacancy.my_score != None) &
-                 ((Vacancy.respond == False) | (Vacancy.respond == None))).order_by(desc(Vacancy.my_score)).all()[0:30]
+                                             ((Vacancy.respond == False) | (Vacancy.respond == None))).order_by(
+            desc(Vacancy.my_score)).all()[0:30]
+        count = Vacancy.query.filter((Vacancy.my_score > 1) & (Vacancy.my_score != None) &
+                                     ((Vacancy.respond == False) | (Vacancy.respond == None))).order_by(
+            desc(Vacancy.my_score)).count()
+        print(count)
     except Exception as e:
         print(f'Ошибка чтения из БД {e}')
 
-    return render_template('index.html', title='Оцененые вакансии', vacancies=all_vacancies)
+    return render_template('index.html', title='Оцененые вакансии', vacancies=all_vacancies, count=count)
 
 
 @app.route('/respondvacancies', methods=['GET'])
 def respond_vacancies():
     try:
         all_vacancies = Vacancy.query.filter(Vacancy.respond == True).order_by(desc(Vacancy.score_points)).all()[0:30]
+        count = Vacancy.query.filter(Vacancy.respond == True).order_by(desc(Vacancy.score_points)).count()
     except Exception as e:
         print(f'Ошибка чтения из БД {e}')
 
-    return render_template('index.html', title='Откликнулся на вакансии', vacancies=all_vacancies)
+    return render_template('index.html', title='Откликнулся на вакансии', vacancies=all_vacancies, count=count)
 
 
 @app.route('/respond', methods=['GET'])
@@ -314,6 +350,29 @@ def respond():
     db.session.commit()
 
     return redirect(f'{vacancy.respond_url}')
+
+
+@app.route('/analytics', methods=['GET'])
+def anal():
+    data = {}
+    all_skills = []
+    all_vacancies = Vacancy.query.filter(Vacancy.my_score > 2)
+
+    for vakans in all_vacancies:
+        all_skills = vakans.key_skills_names.lower()
+        descriptions = vakans.description.lower()
+        # print(all_skills)
+        if descriptions and descriptions != '':
+            for skill in descriptions.split(' '):
+                if len(skill) > 2 and skill.find('<') == -1 and skill.find('>') == -1:
+                    if skill in data:
+                        data[skill] += 1
+                    else:
+                        data[skill] = 1
+    data = OrderedDict(sorted(data.items(), key=lambda x: -x[1]))
+    print(data)
+
+    return render_template('anal.html', title='Аналитика', data=data)
 
 
 if __name__ == '__main__':

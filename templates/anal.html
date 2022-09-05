@@ -1,0 +1,9 @@
+{% extends 'main.html' %}
+<h1>Аналитика </h1>
+{% block content %}
+
+    {%  for key, value in data.items() %}
+        {{key}} - {{value}}<br/>
+    {% endfor %}
+
+{% endblock %}
