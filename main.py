@@ -54,6 +54,17 @@ STOP_WORDS_IN_TITLE = (
 MINUS_WORDS = (
 
 )
+NONE_INFORMATE_WORDS = (
+'работы', 'для', 'опыт', 'разработки', 'или', 'знание', 'работать', 'данных', 'как', 'работа', 'это', 'писать', 'нас',
+'будет', 'что', 'систем', 'принципов', 'возможность', 'новых', 'понимание', 'если', 'ищем', 'умение', 'который',
+'более', 'задачи', 'офис', 'команде', 'заработная', 'использованием', 'системы', 'проектов', 'над', 'есть', 'команда',
+'знания', 'поддержка', 'предстоит', 'компания', 'разработка', 'внешними', 'проект', 'которая', 'уровне', 'компании',
+'рабочего', 'которые', 'разработкой', 'сервисов', 'только', 'решений', 'инструментов', 'команду', 'день', 'другими',
+'профессионального', 'связи', 'так', 'продуктов', 'нам', 'система', 'задач', 'при', 'наших', 'уровень', 'наши',
+'разрабатывать', 'алгоритмов', 'нашей', 'компаний', 'между', 'развитие', 'работе', 'метро', 'приложений', 'компании',
+'всего', 'компании,', 'развития', 'график', 'управления', 'внутренние', 'системы,', 'поддерживать', 'занимаемся',
+'разрабатываем', 'время', 'офисе', 'все', 'основе', 'структур', 'решение', 'счет', '.', ','
+)
 #
 # список
 #
@@ -356,15 +367,20 @@ def respond():
 def anal():
     data = {}
     all_skills = []
-    all_vacancies = Vacancy.query.filter(Vacancy.my_score > 2)
+    #all_vacancies = Vacancy.query.filter(Vacancy.my_score > 2)
+    all_vacancies = Vacancy.query.all()
 
     for vakans in all_vacancies:
-        all_skills = vakans.key_skills_names.lower()
-        descriptions = vakans.description.lower()
+        if all_skills:
+            all_skills = vakans.key_skills_names.lower()
+
+        descriptions = vakans.description
         # print(all_skills)
         if descriptions and descriptions != '':
+            descriptions = descriptions.lower()
             for skill in descriptions.split(' '):
-                if len(skill) > 2 and skill.find('<') == -1 and skill.find('>') == -1:
+                if len(skill) > 2 and skill.find('<') == -1 and skill.find('>') == -1 and \
+                        skill not in NONE_INFORMATE_WORDS:
                     if skill in data:
                         data[skill] += 1
                     else:
